@@ -1,5 +1,5 @@
 /* =============================================================================
- * 1. IMPORTS — every external library used by the app
+ * 1. IMPORTS
  * =============================================================================
  */
 
@@ -12,6 +12,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
   useNavigate,
   useParams,
 } from 'react-router-dom'
@@ -25,6 +26,19 @@ import FeedbackPage from './FeedbackPage'
 
 type ThemeMode = 'dark' | 'light'
 type OrderStatus = 'Received' | 'Preparing' | 'Ready' | 'Served' | 'Cancelled'
+
+/* NEW: per-dish customization option */
+type CustomizationOption = {
+  label: string
+  price: number
+}
+
+/* NEW: full customization config for a dish */
+type DishCustomizations = {
+  sizes: CustomizationOption[]          // e.g. Small/Medium/Large with price deltas
+  toppings: CustomizationOption[]       // e.g. Extra Cheese +₹30
+  spiceLevels: string[]                 // e.g. Mild / Medium / Spicy
+}
 
 type Food = {
   id: string
@@ -44,6 +58,7 @@ type Food = {
   bestseller?: boolean
   availability: 'Available' | 'Popular' | 'Out of Stock'
   reviews: number
+  customizations: DishCustomizations   // NEW
 }
 
 type CartCustomization = { size: string; toppings: string[]; spice: string }
@@ -140,180 +155,497 @@ const categories = [
   'Drinks',
 ]
 
+/* -----------------------------------------------------------------------------
+ * Reusable customization presets — each dish picks what it needs
+ * --------------------------------------------------------------------------- */
+
+const PIZZA_SIZES: CustomizationOption[] = [
+  { label: 'Small (7")', price: -80 },
+  { label: 'Medium (10")', price: 0 },
+  { label: 'Large (13")', price: 120 },
+]
+
+const PIZZA_TOPPINGS: CustomizationOption[] = [
+  { label: 'Extra Cheese', price: 30 },
+  { label: 'Mushroom', price: 40 },
+  { label: 'Chicken', price: 60 },
+  { label: 'Jalapeno', price: 20 },
+  { label: 'Olives', price: 25 },
+  { label: 'Paneer', price: 50 },
+  { label: 'Sweet Corn', price: 20 },
+  { label: 'Red Paprika', price: 25 },
+]
+
+const BOWL_SIZES: CustomizationOption[] = [
+  { label: 'Regular', price: 0 },
+  { label: 'Large', price: 80 },
+]
+
+const DESSERT_SIZES: CustomizationOption[] = [
+  { label: 'Single Scoop', price: 0 },
+  { label: 'Double Scoop', price: 60 },
+]
+
+const DRINK_SIZES: CustomizationOption[] = [
+  { label: 'Small', price: -20 },
+  { label: 'Regular', price: 0 },
+  { label: 'Large', price: 40 },
+]
+
+const SPICE_STANDARD = ['Mild', 'Medium', 'Spicy']
+const SPICE_SOFT = ['Mild', 'Medium']
+
+/* -----------------------------------------------------------------------------
+ * ALL DISHES — each with its OWN customization set
+ * --------------------------------------------------------------------------- */
+
 const initialFoods: Food[] = [
+  /* ═══════════ PIZZAS ═══════════ */
   {
-    id: 'tikka-pizza',
-    name: ' Tikka Pizza',
+    id: 'california-pizza',
+    name: 'California Pizza',
     category: 'Pizza',
-    price: 349,
+    price: 379,
+    rating: 4.7,
+    description: 'Loaded pizza with fresh veggies, herbs and a West-coast style cheese blend.',
+    ingredients: ['Pizza base', 'Cheese', 'Tomato', 'Capsicum', 'Onion', 'Herbs'],
+    calories: '640 kcal',
+    allergens: 'Gluten, Dairy',
+    spiceLevel: 'Mild',
+    servingSize: '1 pizza',
+    image: '/models/California_Pizza.jpg',
+    model: '/models/California_Pizza.glb',
+    isVeg: true,
+    availability: 'Available',
+    reviews: 156,
+    customizations: {
+      sizes: PIZZA_SIZES,
+      toppings: PIZZA_TOPPINGS,
+      spiceLevels: SPICE_STANDARD,
+    },
+  },
+  {
+    id: 'cheese-crust-pizza',
+    name: 'Cheese Crust Pizza',
+    category: 'Pizza',
+    price: 399,
+    rating: 4.9,
+    description: 'Golden cheese-stuffed crust with creamy mozzarella and tangy tomato sauce.',
+    ingredients: ['Pizza base', 'Mozzarella', 'Cheddar', 'Tomato sauce', 'Herbs'],
+    calories: '720 kcal',
+    allergens: 'Gluten, Dairy',
+    spiceLevel: 'Mild',
+    servingSize: '1 pizza',
+    image: '/models/Cheese_Crust_Pizza.jpg',
+    model: '/models/Cheese_Crust_Pizza.glb',
+    isVeg: true,
+    bestseller: true,
+    availability: 'Popular',
+    reviews: 289,
+    customizations: {
+      sizes: PIZZA_SIZES,
+      toppings: [
+        { label: 'Extra Cheese', price: 40 },
+        { label: 'Mushroom', price: 40 },
+        { label: 'Jalapeno', price: 20 },
+        { label: 'Olives', price: 25 },
+        { label: 'Sweet Corn', price: 20 },
+      ],
+      spiceLevels: SPICE_SOFT,
+    },
+  },
+  {
+    id: 'detroit-pizza',
+    name: 'Detroit Pizza',
+    category: 'Pizza',
+    price: 389,
     rating: 4.8,
-    description: 'Cheesy pizza topped with grilled chicken tikka, herbs and fresh vegetables.',
-    ingredients: ['Pizza base', 'Cheese', 'Chicken tikka', 'Capsicum', 'Onion', 'Tomato', 'Herbs'],
-    calories: '620 kcal',
+    description: 'Deep-dish rectangle pizza with crispy cheese edges and rich tomato topping.',
+    ingredients: ['Pizza base', 'Cheese', 'Tomato', 'Oregano', 'Olive oil'],
+    calories: '740 kcal',
     allergens: 'Gluten, Dairy',
     spiceLevel: 'Medium',
     servingSize: '1 pizza',
-    image:
-      'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=900&q=80',
-    model: '/models/Sicilian_Pizza.glb',
-    isVeg: false,
-    bestseller: true,
-    availability: 'Available',
-    reviews: 314,
+    image: '/models/Detroit_Pizza.jpg',
+    model: '/models/Detroit_Pizza.glb',
+    isVeg: true,
+    availability: 'Popular',
+    reviews: 232,
+    customizations: {
+      sizes: PIZZA_SIZES,
+      toppings: PIZZA_TOPPINGS,
+      spiceLevels: SPICE_STANDARD,
+    },
   },
   {
-    id: 'cheese-burger',
-    name: 'Cheese Burger',
-    category: 'Burgers',
-    price: 219,
-    rating: 4.7,
-    description: 'Juicy grilled patty layered with cheddar, lettuce and burger sauce.',
-    ingredients: ['Bun', 'Beef patty', 'Cheddar', 'Lettuce', 'Onion', 'Sauce'],
-    calories: '540 kcal',
+    id: 'italian-pizza',
+    name: 'Italian Pizza',
+    category: 'Pizza',
+    price: 369,
+    rating: 4.8,
+    description: 'Classic thin-crust pizza with San Marzano tomato sauce and fresh basil.',
+    ingredients: ['Pizza base', 'Tomato sauce', 'Mozzarella', 'Basil', 'Olive oil'],
+    calories: '600 kcal',
     allergens: 'Gluten, Dairy',
     spiceLevel: 'Mild',
-    servingSize: '1 burger',
-    image:
-      'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=80',
-    model: '/models/Cheese_Burger.glb',
-    isVeg: false,
+    servingSize: '1 pizza',
+    image: '/models/Italian_Pizza.jpg',
+    model: '/models/Italian_Pizza.glb',
+    isVeg: true,
     bestseller: true,
-    availability: 'Popular',
-    reviews: 267,
+    availability: 'Available',
+    reviews: 276,
+    customizations: {
+      sizes: PIZZA_SIZES,
+      toppings: [
+        { label: 'Extra Cheese', price: 30 },
+        { label: 'Mushroom', price: 40 },
+        { label: 'Olives', price: 25 },
+        { label: 'Basil', price: 15 },
+      ],
+      spiceLevels: SPICE_SOFT,
+    },
   },
   {
-    id: 'cheese-pasta',
-    name: 'Cheese Pasta',
-    category: 'Pasta',
-    price: 289,
+    id: 'pan-pizza',
+    name: 'Pan Pizza',
+    category: 'Pizza',
+    price: 339,
+    rating: 4.6,
+    description: 'Thick, buttery pan-crust pizza loaded with cheese and seasoning.',
+    ingredients: ['Pizza base', 'Cheese', 'Butter', 'Tomato sauce', 'Seasoning'],
+    calories: '700 kcal',
+    allergens: 'Gluten, Dairy',
+    spiceLevel: 'Mild',
+    servingSize: '1 pizza',
+    image: '/models/Pan_Pizza.jpg',
+    model: '/models/Pan_Pizza.glb',
+    isVeg: true,
+    availability: 'Available',
+    reviews: 187,
+    customizations: {
+      sizes: PIZZA_SIZES,
+      toppings: PIZZA_TOPPINGS,
+      spiceLevels: SPICE_STANDARD,
+    },
+  },
+  {
+    id: 'pecorino-cheese-pizza',
+    name: 'Pecorino Cheese Pizza',
+    category: 'Pizza',
+    price: 399,
     rating: 4.9,
-    description: 'Creamy al dente pasta with melted cheese and roasted garlic finish.',
-    ingredients: ['Pasta', 'Cream', 'Cheese', 'Garlic', 'Parsley'],
-    calories: '580 kcal',
+    description: 'Sharp Pecorino Romano cheese with a hint of cracked black pepper.',
+    ingredients: ['Pizza base', 'Pecorino cheese', 'Mozzarella', 'Pepper', 'Olive oil'],
+    calories: '710 kcal',
+    allergens: 'Gluten, Dairy',
+    spiceLevel: 'Mild',
+    servingSize: '1 pizza',
+    image: '/models/Pecorino_Cheese_Pizza.jpg',
+    model: '/models/Pecorino_Cheese_Pizza.glb',
+    isVeg: true,
+    bestseller: true,
+    availability: 'Popular',
+    reviews: 261,
+    customizations: {
+      sizes: PIZZA_SIZES,
+      toppings: [
+        { label: 'Extra Cheese', price: 40 },
+        { label: 'Mushroom', price: 40 },
+        { label: 'Olives', price: 25 },
+        { label: 'Pepper', price: 15 },
+      ],
+      spiceLevels: SPICE_SOFT,
+    },
+  },
+  {
+    id: 'peppy-poneer-pizza',
+    name: 'Peppy Poneer Pizza',
+    category: 'Pizza',
+    price: 349,
+    rating: 4.7,
+    description: 'Paneer, crisp capsicum and red paprika on a cheesy base.',
+    ingredients: ['Pizza base', 'Paneer', 'Capsicum', 'Red paprika', 'Cheese'],
+    calories: '640 kcal',
+    allergens: 'Gluten, Dairy',
+    spiceLevel: 'Medium',
+    servingSize: '1 pizza',
+    image: '/models/Peppy_Poneer_Pizza.jpg',
+    model: '/models/Peppy_Poneer_Pizza.glb',
+    isVeg: true,
+    availability: 'Available',
+    reviews: 209,
+    customizations: {
+      sizes: PIZZA_SIZES,
+      toppings: [
+        { label: 'Extra Cheese', price: 30 },
+        { label: 'Paneer', price: 50 },
+        { label: 'Capsicum', price: 20 },
+        { label: 'Red Paprika', price: 25 },
+      ],
+      spiceLevels: SPICE_STANDARD,
+    },
+  },
+  {
+    id: 'sicilian-pizza',
+    name: 'Sicilian Pizza',
+    category: 'Pizza',
+    price: 369,
+    rating: 4.8,
+    description: 'Thick-crust Sicilian-style pizza with cheese and generous tomato sauce.',
+    ingredients: ['Pizza base', 'Cheese', 'Tomato sauce', 'Oregano', 'Olive oil'],
+    calories: '680 kcal',
+    allergens: 'Gluten, Dairy',
+    spiceLevel: 'Mild',
+    servingSize: '1 pizza',
+    image: '/models/Sicilian_Pizza.jpg',
+    model: '/models/Sicilian_Pizza.glb',
+    isVeg: true,
+    bestseller: true,
+    availability: 'Popular',
+    reviews: 314,
+    customizations: {
+      sizes: PIZZA_SIZES,
+      toppings: PIZZA_TOPPINGS,
+      spiceLevels: SPICE_STANDARD,
+    },
+  },
+
+  /* ═══════════ PASTA ═══════════ */
+  {
+    id: 'pasta',
+    name: 'Pasta',
+    category: 'Pasta',
+    price: 259,
+    rating: 4.7,
+    description: 'Classic pasta with tomato sauce, herbs and a sprinkle of parmesan.',
+    ingredients: ['Pasta', 'Tomato sauce', 'Parmesan', 'Basil', 'Olive oil'],
+    calories: '520 kcal',
     allergens: 'Gluten, Dairy',
     spiceLevel: 'Mild',
     servingSize: '1 bowl',
-    image:
-      'https://images.unsplash.com/photo-1555949258-eb67b1ef0ceb?auto=format&fit=crop&w=900&q=80',
+    image: '/models/pasta.jpg',
     model: '/models/pasta.glb',
     isVeg: true,
-    bestseller: true,
     availability: 'Available',
-    reviews: 402,
+    reviews: 245,
+    customizations: {
+      sizes: BOWL_SIZES,
+      toppings: [
+        { label: 'Extra Cheese', price: 30 },
+        { label: 'Mushroom', price: 40 },
+        { label: 'Chicken', price: 60 },
+        { label: 'Jalapeno', price: 20 },
+        { label: 'Olives', price: 25 },
+      ],
+      spiceLevels: SPICE_STANDARD,
+    },
   },
+
+  /* ═══════════ INDIAN FOOD ═══════════ */
   {
-    id: 'paneer-tikka',
-    name: 'Paneer Tikka',
+    id: 'pav-bhaji',
+    name: 'Pav Bhaji',
     category: 'Indian Food',
-    price: 259,
-    rating: 4.6,
-    description: 'Smoky grilled cottage cheese marinated in house spices and herbs.',
-    ingredients: ['Paneer', 'Yogurt', 'Capsicum', 'Onion', 'Masala'],
-    calories: '430 kcal',
-    allergens: 'Dairy',
+    price: 199,
+    rating: 4.8,
+    description: 'Spiced mashed vegetable curry served with buttered pav buns.',
+    ingredients: ['Mixed vegetables', 'Tomato', 'Butter', 'Pav buns', 'Masala'],
+    calories: '520 kcal',
+    allergens: 'Gluten, Dairy',
     spiceLevel: 'Medium',
-    servingSize: '2 servings',
-    image:
-      'https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?auto=format&fit=crop&w=900&q=80',
-    model: '/models/Paneer_Tikka.glb',
+    servingSize: '1 plate',
+    image: '/models/pav_bhaji.jpg',
+    model: '/models/pav_bhaji.glb',
+    isVeg: true,
+    bestseller: true,
+    availability: 'Popular',
+    reviews: 245,
+    customizations: {
+      sizes: [
+        { label: 'Half', price: -50 },
+        { label: 'Full', price: 0 },
+      ],
+      toppings: [
+        { label: 'Extra Butter', price: 20 },
+        { label: 'Extra Pav', price: 30 },
+        { label: 'Cheese', price: 40 },
+        { label: 'Onion', price: 10 },
+      ],
+      spiceLevels: ['Mild', 'Medium', 'Spicy', 'Extra Spicy'],
+    },
+  },
+
+  /* ═══════════ DESSERTS ═══════════ */
+  {
+    id: 'coconut-crush',
+    name: 'Coconut Crush',
+    category: 'Desserts',
+    price: 179,
+    rating: 4.6,
+    description: 'Chilled coconut milk dessert with tender coconut chunks and jaggery.',
+    ingredients: ['Coconut milk', 'Tender coconut', 'Jaggery', 'Cardamom'],
+    calories: '280 kcal',
+    allergens: 'None',
+    spiceLevel: 'Mild',
+    servingSize: '1 cup',
+    image: '/models/Coconut_Crush.jpg',
+    model: '/models/Coconut_Crush.glb',
     isVeg: true,
     availability: 'Available',
-    reviews: 189,
+    reviews: 134,
+    customizations: {
+      sizes: DESSERT_SIZES,
+      toppings: [
+        { label: 'Extra Jaggery', price: 20 },
+        { label: 'Tender Coconut', price: 30 },
+        { label: 'Cardamom', price: 10 },
+      ],
+      spiceLevels: ['Mild'],
+    },
   },
   {
-    id: 'peri-peri-wings',
-    name: 'Peri Peri Wings',
-    category: 'Snacks',
-    price: 199,
-    rating: 4.7,
-    description: 'Crispy chicken wings glazed with spicy peri peri sauce and lemon zest.',
-    ingredients: ['Chicken', 'Peri peri', 'Lemon', 'Garlic', 'Seasoning'],
-    calories: '510 kcal',
-    allergens: 'Dairy',
-    spiceLevel: 'Spicy',
-    servingSize: '6 pieces',
-    image:
-      'https://images.unsplash.com/photo-1527477396000-e27163b481c2?auto=format&fit=crop&w=900&q=80',
-    model: '/models/peri_peri_wings.glb',
-    isVeg: false,
+    id: 'cookie-dough',
+    name: 'Cookie Dough',
+    category: 'Desserts',
+    price: 189,
+    rating: 4.8,
+    description: 'Edible cookie dough with chocolate chips — safe to eat raw.',
+    ingredients: ['Flour', 'Butter', 'Sugar', 'Chocolate chips', 'Vanilla'],
+    calories: '410 kcal',
+    allergens: 'Gluten, Dairy',
+    spiceLevel: 'Mild',
+    servingSize: '1 cup',
+    image: '/models/Cookie_Dough.jpg',
+    model: '/models/Cookie_Dough.glb',
+    isVeg: true,
     availability: 'Popular',
-    reviews: 221,
+    reviews: 198,
+    customizations: {
+      sizes: DESSERT_SIZES,
+      toppings: [
+        { label: 'Extra Chocolate Chips', price: 25 },
+        { label: 'Sprinkles', price: 15 },
+        { label: 'Caramel Drizzle', price: 30 },
+      ],
+      spiceLevels: ['Mild'],
+    },
   },
   {
-    id: 'lava-cake',
-    name: 'Molten Lava Cake',
+    id: 'cotton-candy',
+    name: 'Cotton Candy',
+    category: 'Desserts',
+    price: 129,
+    rating: 4.5,
+    description: 'Fluffy spun sugar candy in a rainbow of pastel colours.',
+    ingredients: ['Sugar', 'Food colouring', 'Flavouring'],
+    calories: '180 kcal',
+    allergens: 'None',
+    spiceLevel: 'Mild',
+    servingSize: '1 stick',
+    image: '/models/Cotton_Candy.jpg',
+    model: '/models/Cotton_Candy.glb',
+    isVeg: true,
+    availability: 'Available',
+    reviews: 112,
+    customizations: {
+      sizes: [
+        { label: 'Small', price: 0 },
+        { label: 'Jumbo', price: 50 },
+      ],
+      toppings: [
+        { label: 'Rainbow Sprinkles', price: 15 },
+        { label: 'Glitter Dust', price: 20 },
+      ],
+      spiceLevels: ['Mild'],
+    },
+  },
+  {
+    id: 'salted-caramel',
+    name: 'Salted Caramel',
     category: 'Desserts',
     price: 169,
     rating: 4.9,
-    description: 'Warm chocolate cake with a rich molten center and vanilla cream.',
-    ingredients: ['Chocolate', 'Butter', 'Flour', 'Eggs', 'Vanilla'],
-    calories: '460 kcal',
-    allergens: 'Gluten, Dairy, Eggs',
+    description: 'Rich, buttery caramel with a hint of sea salt — served warm.',
+    ingredients: ['Sugar', 'Butter', 'Cream', 'Sea salt', 'Vanilla'],
+    calories: '420 kcal',
+    allergens: 'Dairy',
     spiceLevel: 'Mild',
-    servingSize: '1 slice',
-    image:
-      'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=900&q=80',
+    servingSize: '1 serving',
+    image: '/models/Salted_Caramel.jpg',
     model: '/models/Salted_Caramel.glb',
     isVeg: true,
-    availability: 'Available',
+    bestseller: true,
+    availability: 'Popular',
     reviews: 284,
+    customizations: {
+      sizes: DESSERT_SIZES,
+      toppings: [
+        { label: 'Extra Sea Salt', price: 10 },
+        { label: 'Crushed Nuts', price: 35 },
+        { label: 'Chocolate Drizzle', price: 30 },
+      ],
+      spiceLevels: ['Mild'],
+    },
   },
+
+  /* ═══════════ ICE CREAM ═══════════ */
   {
-    id: 'choco-burst-icecream',
-    name: 'Choco Burst Ice Cream',
+    id: 'vanilla-bean',
+    name: 'Vanilla Bean',
     category: 'Ice Cream',
-    price: 149,
+    price: 159,
     rating: 4.8,
-    description: 'Velvety chocolate ice cream with crunchy praline and cocoa nibs.',
-    ingredients: ['Milk', 'Chocolate', 'Cream', 'Praline', 'Cocoa'],
-    calories: '340 kcal',
+    description: 'Classic vanilla bean ice cream with real Madagascar vanilla.',
+    ingredients: ['Milk', 'Cream', 'Sugar', 'Vanilla bean'],
+    calories: '290 kcal',
     allergens: 'Dairy',
     spiceLevel: 'Mild',
     servingSize: '1 scoop',
-    image:
-      'https://images.unsplash.com/photo-1570197788417-0e82375c9371?auto=format&fit=crop&w=900&q=80',
-    model: '',
+    image: '/models/Vanilla_Bean.jpg',
+    model: '/models/Vanilla_Bean.glb',
     isVeg: true,
     availability: 'Available',
-    reviews: 178,
+    reviews: 221,
+    customizations: {
+      sizes: DESSERT_SIZES,
+      toppings: [
+        { label: 'Hot Chocolate Sauce', price: 30 },
+        { label: 'Crushed Nuts', price: 35 },
+        { label: 'Rainbow Sprinkles', price: 15 },
+        { label: 'Waffle Cone', price: 25 },
+      ],
+      spiceLevels: ['Mild'],
+    },
   },
+
+  /* ═══════════ SMOOTHIES ═══════════ */
   {
-    id: 'mango-smoothie',
-    name: 'Mango Smoothie',
+    id: 'pineapple-smoothie',
+    name: 'Pineapple Smoothie',
     category: 'Smoothies',
-    price: 149,
-    rating: 4.6,
-    description: 'A creamy blend of ripe mango, yogurt and coconut for a tropical lift.',
-    ingredients: ['Mango', 'Yogurt', 'Coconut', 'Honey'],
-    calories: '260 kcal',
-    allergens: 'Dairy',
+    price: 139,
+    rating: 4.5,
+    description: 'Tangy pineapple blended with coconut milk and a hint of ginger.',
+    ingredients: ['Pineapple', 'Coconut milk', 'Ginger', 'Honey'],
+    calories: '220 kcal',
+    allergens: 'None',
     spiceLevel: 'Mild',
     servingSize: '300 ml',
-    image:
-      'https://images.unsplash.com/photo-1546173159-315724a31696?auto=format&fit=crop&w=900&q=80',
-    model: '/models/Tropical_Fruit_Smoothie.glb',
+    image: '/models/Pineapple_Smoothie.jpg',
+    model: '/models/Pineapple_Smoothie.glb',
     isVeg: true,
     availability: 'Available',
-    reviews: 143,
-  },
-  {
-    id: 'cold-coffee',
-    name: 'Cold Coffee',
-    category: 'Drinks',
-    price: 120,
-    rating: 4.5,
-    description: 'Iced coffee blended with creamy milk and a touch of caramel.',
-    ingredients: ['Coffee', 'Milk', 'Ice', 'Caramel'],
-    calories: '200 kcal',
-    allergens: 'Dairy',
-    spiceLevel: 'Mild',
-    servingSize: '250 ml',
-    image:
-      'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=900&q=80',
-    model: '/models/cold_coffee.glb',
-    isVeg: true,
-    availability: 'Available',
-    reviews: 95,
+    reviews: 118,
+    customizations: {
+      sizes: DRINK_SIZES,
+      toppings: [
+        { label: 'Chia Seeds', price: 20 },
+        { label: 'Extra Honey', price: 15 },
+        { label: 'Mint Leaves', price: 10 },
+      ],
+      spiceLevels: ['Mild'],
+    },
   },
 ]
 
@@ -332,7 +664,7 @@ const initialOrders: Order[] = [
     status: 'Preparing',
     createdAt: 'Today, 7:45 PM',
     items: [
-      { foodId: 'chicken-tikka-pizza', name: 'Chicken Tikka Pizza', quantity: 1, price: 349, customizations: { size: 'Large', toppings: ['Extra Cheese'], spice: 'Medium' } },
+      { foodId: 'chicken-tikka-pizza', name: 'Chicken Tikka Pizza', quantity: 1, price: 349, customizations: { size: 'Medium', toppings: ['Extra Cheese'], spice: 'Medium' } },
       { foodId: 'cold-coffee', name: 'Cold Coffee', quantity: 1, price: 120, customizations: { size: 'Medium', toppings: [], spice: 'Mild' } },
     ],
   },
@@ -359,9 +691,9 @@ const initialOffers: Offer[] = [
 ]
 
 const initialReviews: ReviewItem[] = [
-  { id: 'rv-1', customer: 'Aanya', food: 'Chicken Tikka Pizza', rating: 5, comment: 'The flavors were incredible and the 3D preview made it easy to pick.', date: 'Today' },
-  { id: 'rv-2', customer: 'Rohan', food: 'Cheese Pasta', rating: 5, comment: 'Creamy and comforting, definitely order again.', date: 'Yesterday' },
-  { id: 'rv-3', customer: 'Neha', food: 'Cold Coffee', rating: 4, comment: 'Tasted good and the order arrived quick.', date: 'Recently' },
+  { id: 'rv-1', customer: 'Aanya', food: 'Cheese Crust Pizza', rating: 5, comment: 'The flavors were incredible and the 3D preview made it easy to pick.', date: 'Today' },
+  { id: 'rv-2', customer: 'Rohan', food: 'Pasta', rating: 5, comment: 'Creamy and comforting, definitely order again.', date: 'Yesterday' },
+  { id: 'rv-3', customer: 'Neha', food: 'Pineapple Smoothie', rating: 4, comment: 'Tasted good and the order arrived quick.', date: 'Recently' },
 ]
 
 /* =============================================================================
@@ -386,7 +718,19 @@ function useLocalStorage<T>(key: string, initialValue: T) {
 }
 
 /* =============================================================================
- * 5. APP — top-level component
+ * 4b. SCROLL TO TOP
+ * =============================================================================
+ */
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
+  }, [pathname])
+  return null
+}
+
+/* =============================================================================
+ * 5. APP
  * =============================================================================
  */
 function App() {
@@ -407,8 +751,15 @@ function App() {
 
   const addToCart = (food: Food, customizations: CartCustomization = { size: 'Medium', toppings: [], spice: 'Mild' }) => {
     const itemKey = `${food.id}-${customizations.size}-${customizations.spice}-${customizations.toppings.join('|')}`
-    const customizationFee = customizations.toppings.reduce((sum, topping) => sum + getToppingPrice(topping), 0)
-    const itemPrice = food.price + customizationFee
+
+    /* NEW: compute price from this dish's own customization prices */
+    const sizeOption = food.customizations.sizes.find((s) => s.label === customizations.size)
+    const sizeDelta = sizeOption?.price ?? 0
+    const toppingFee = customizations.toppings.reduce((sum, label) => {
+      const option = food.customizations.toppings.find((t) => t.label === label)
+      return sum + (option?.price ?? 0)
+    }, 0)
+    const itemPrice = food.price + sizeDelta + toppingFee
 
     setCart((current) => {
       const existing = current.find((entry) => entry.itemKey === itemKey)
@@ -471,6 +822,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <div className="app-shell">
         <Routes>
           <Route path="/" element={<Navigate to="/menu/restaurant-demo" replace />} />
@@ -620,7 +972,6 @@ function CustomerExperience({
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search dishes, ingredients..."
             />
-            {/* NEW: prompt() pop-up for keyword search */}
             <button
               type="button"
               className="text-button"
@@ -768,7 +1119,7 @@ function CustomerExperience({
 }
 
 /* =============================================================================
- * 7. FOOD DETAIL PAGE
+ * 7. FOOD DETAIL PAGE — now reads customizations from the food itself
  * =============================================================================
  */
 function FoodDetailPage({
@@ -792,13 +1143,38 @@ function FoodDetailPage({
   const { foodId } = useParams()
   const food = foods.find((item) => item.id === foodId) ?? foods[0]
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('3d')
-  const [size, setSize] = useState('Medium')
-  const [toppings, setToppings] = useState<string[]>(['Extra Cheese'])
-  const [spice, setSpice] = useState('Medium')
+
+  /* NEW: initialize state from this dish's own customizations */
+  const defaultSize = food.customizations.sizes[1]?.label ?? food.customizations.sizes[0]?.label ?? 'Regular'
+  const defaultSpice = food.customizations.spiceLevels.includes('Medium')
+    ? 'Medium'
+    : food.customizations.spiceLevels[0] ?? 'Mild'
+
+  const [size, setSize] = useState(defaultSize)
+  const [toppings, setToppings] = useState<string[]>([])
+  const [spice, setSpice] = useState(defaultSpice)
   const [quantity, setQuantity] = useState(1)
 
-  const basePrice = food.price
-  const extraCharge = toppings.reduce((sum, topping) => sum + getToppingPrice(topping), 0)
+  /* NEW: reset selection when the food changes */
+  useEffect(() => {
+    setSize(food.customizations.sizes[1]?.label ?? food.customizations.sizes[0]?.label ?? 'Regular')
+    setToppings([])
+    setSpice(
+      food.customizations.spiceLevels.includes('Medium')
+        ? 'Medium'
+        : food.customizations.spiceLevels[0] ?? 'Mild'
+    )
+    setQuantity(1)
+  }, [food.id])
+
+  /* NEW: price computation from this dish's own options */
+  const sizeOption = food.customizations.sizes.find((s) => s.label === size)
+  const sizeDelta = sizeOption?.price ?? 0
+  const extraCharge = toppings.reduce((sum, label) => {
+    const option = food.customizations.toppings.find((t) => t.label === label)
+    return sum + (option?.price ?? 0)
+  }, 0)
+  const basePrice = food.price + sizeDelta
   const total = (basePrice + extraCharge) * quantity
   const tableNumber = tables[0]?.number ?? 12
 
@@ -851,7 +1227,6 @@ function FoodDetailPage({
               src={food.image}
               alt={food.name}
               className="detail-image"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           )}
         </div>
@@ -879,41 +1254,67 @@ function FoodDetailPage({
           <div className="customizer glass-card">
             <h3>Customize your order</h3>
 
+            {/* SIZE — from this dish only */}
             <div className="customizer-group">
               <label>Size</label>
               <div className="radio-list">
-                {['Small', 'Medium', 'Large'].map((option) => (
-                  <label key={option} className={size === option ? 'choice selected' : 'choice'}>
-                    <input type="radio" name="size" checked={size === option} onChange={() => setSize(option)} />
-                    {option}
+                {food.customizations.sizes.map((option) => (
+                  <label key={option.label} className={size === option.label ? 'choice selected' : 'choice'}>
+                    <input
+                      type="radio"
+                      name="size"
+                      checked={size === option.label}
+                      onChange={() => setSize(option.label)}
+                    />
+                    {option.label}
+                    {option.price !== 0 ? (
+                      <span style={{ marginLeft: 6, opacity: 0.75 }}>
+                        {option.price > 0 ? `+₹${option.price}` : `−₹${Math.abs(option.price)}`}
+                      </span>
+                    ) : null}
                   </label>
                 ))}
               </div>
             </div>
 
-            <div className="customizer-group">
-              <label>Toppings</label>
-              <div className="check-list">
-                {['Extra Cheese', 'Mushroom', 'Chicken', 'Jalapeno'].map((option) => (
-                  <label key={option} className={toppings.includes(option) ? 'choice selected' : 'choice'}>
-                    <input type="checkbox" checked={toppings.includes(option)} onChange={() => toggleTopping(option)} />
-                    {option} +₹{getToppingPrice(option)}
-                  </label>
-                ))}
+            {/* TOPPINGS — from this dish only */}
+            {food.customizations.toppings.length > 0 ? (
+              <div className="customizer-group">
+                <label>Toppings</label>
+                <div className="check-list">
+                  {food.customizations.toppings.map((option) => (
+                    <label key={option.label} className={toppings.includes(option.label) ? 'choice selected' : 'choice'}>
+                      <input
+                        type="checkbox"
+                        checked={toppings.includes(option.label)}
+                        onChange={() => toggleTopping(option.label)}
+                      />
+                      {option.label} +₹{option.price}
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : null}
 
-            <div className="customizer-group">
-              <label>Spice</label>
-              <div className="radio-list">
-                {['Mild', 'Medium', 'Spicy'].map((option) => (
-                  <label key={option} className={spice === option ? 'choice selected' : 'choice'}>
-                    <input type="radio" name="spice" checked={spice === option} onChange={() => setSpice(option)} />
-                    {option}
-                  </label>
-                ))}
+            {/* SPICE — from this dish only */}
+            {food.customizations.spiceLevels.length > 0 ? (
+              <div className="customizer-group">
+                <label>Spice</label>
+                <div className="radio-list">
+                  {food.customizations.spiceLevels.map((option) => (
+                    <label key={option} className={spice === option ? 'choice selected' : 'choice'}>
+                      <input
+                        type="radio"
+                        name="spice"
+                        checked={spice === option}
+                        onChange={() => setSpice(option)}
+                      />
+                      {option}
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : null}
 
             <div className="quantity-row">
               <label>Quantity</label>
@@ -1025,7 +1426,6 @@ function CartPage({
                   <div className="cart-item-content">
                     <div className="cart-headline">
                       <strong>{item.name}</strong>
-                      {/* NEW: confirm() pop-up before removing */}
                       <button
                         type="button"
                         className="text-button"
@@ -1263,7 +1663,7 @@ function Food3DViewer({ food }: { food: Food }) {
   return (
     <div
       className="model-viewer-wrap"
-      style={{ width: '100%', height: '100%', minHeight: 280 }}
+      style={{ minHeight: 280 }}
     >
       {!loaded ? <div className="loading-overlay">Loading 3D model...</div> : null}
       <ModelViewer
@@ -1998,20 +2398,6 @@ function StatCard({
       <small>{trend}</small>
     </div>
   )
-}
-
-/* =============================================================================
- * 27. HELPERS
- * =============================================================================
- */
-function getToppingPrice(option: string) {
-  const prices: Record<string, number> = {
-    'Extra Cheese': 30,
-    Mushroom: 40,
-    Chicken: 60,
-    Jalapeno: 20,
-  }
-  return prices[option] ?? 0
 }
 
 export default App

@@ -7,6 +7,8 @@ type FormData = {
   phone: string
   age: string
   gender: string
+  rating: string
+  category: string
   message: string
   agree: boolean
 }
@@ -22,6 +24,8 @@ export default function FeedbackPage() {
     phone: '',
     age: '',
     gender: '',
+    rating: '',
+    category: '',
     message: '',
     agree: false,
   })
@@ -34,7 +38,7 @@ export default function FeedbackPage() {
     setErrors((prev) => ({ ...prev, [key]: undefined }))
   }
 
-  /* ---- Optional: live-strip disallowed characters as user types ---- */
+  /* ---- Live-strip disallowed characters as user types ---- */
   const handleNameChange = (v: string) => {
     setField('fullName', v.replace(/[^A-Za-z\s]/g, ''))
   }
@@ -78,6 +82,14 @@ export default function FeedbackPage() {
       e.gender = 'Please select a gender.'
     }
 
+    if (!data.rating) {
+      e.rating = 'Please select a rating.'
+    }
+
+    if (!data.category) {
+      e.category = 'Please select a category.'
+    }
+
     if (!data.message.trim()) {
       e.message = 'Message is required.'
     } else if (data.message.trim().length < 10) {
@@ -91,12 +103,14 @@ export default function FeedbackPage() {
     return e
   }
 
-  const handleSubmit = (ev: React.FormEvent) => {
+  const handleSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault()
     const found = validate(form)
     setErrors(found)
 
     if (Object.keys(found).length > 0) {
+      alert('Please fix the highlighted errors before submitting.')
+
       const firstKey = Object.keys(found)[0]
       const el = document.getElementById(firstKey)
       el?.focus()
@@ -105,14 +119,22 @@ export default function FeedbackPage() {
     }
 
     try {
-      const existing = JSON.parse(localStorage.getItem('artex-feedback') || '[]')
-      existing.push({ ...form, submittedAt: new Date().toISOString() })
-      localStorage.setItem('artex-feedback', JSON.stringify(existing))
-    } catch {
-      /* ignore */
-    }
+      const response = await fetch('http://localhost:5000/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
 
-    setSubmitted(true)
+      if (!response.ok) {
+        throw new Error('Server rejected the request')
+      }
+
+      alert(`Thank you, ${form.fullName}! Your feedback has been submitted.`)
+      setSubmitted(true)
+    } catch (error) {
+      console.error('Submit failed:', error)
+      alert('There was an error submitting your feedback. Please try again.')
+    }
   }
 
   if (submitted) {
@@ -238,6 +260,49 @@ export default function FeedbackPage() {
             ))}
             {errors.gender && (
               <div className="invalid-feedback d-block">{errors.gender}</div>
+            )}
+          </div>
+
+          {/* Rating */}
+          <div className="col-12">
+            <label className="form-label d-block">Rating *</label>
+            {(['1', '2', '3', '4', '5'] as const).map((r) => (
+              <div className="form-check form-check-inline" key={r}>
+                <input
+                  className={`form-check-input ${errors.rating ? 'is-invalid' : ''}`}
+                  type="radio"
+                  name="rating"
+                  id={`rating-${r}`}
+                  checked={form.rating === r}
+                  onChange={() => setField('rating', r)}
+                />
+                <label className="form-check-label" htmlFor={`rating-${r}`}>
+                  {r} ⭐
+                </label>
+              </div>
+            ))}
+            {errors.rating && (
+              <div className="invalid-feedback d-block">{errors.rating}</div>
+            )}
+          </div>
+
+          {/* Category */}
+          <div className="col-md-6">
+            <label className="form-label">Category *</label>
+            <select
+              id="category"
+              className={`form-select ${errors.category ? 'is-invalid' : ''}`}
+              value={form.category}
+              onChange={(e) => setField('category', e.target.value)}
+            >
+              <option value="">— Select a category —</option>
+              <option value="Food">Food</option>
+              <option value="Service">Service</option>
+              <option value="Ambience">Ambience</option>
+              <option value="Other">Other</option>
+            </select>
+            {errors.category && (
+              <div className="invalid-feedback d-block">{errors.category}</div>
             )}
           </div>
 
